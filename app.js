@@ -25,7 +25,55 @@ function tick(){const bs=barSteps(); if(state.step%bs===0)tone(880,.035,'square'
 function play(){ensureAudio(); if(state.playing)return; state.playing=true; const interval=60000/state.bpm/4; state.timer=setInterval(tick,interval); setStatus('Playing')}
 function stop(){state.playing=false;clearInterval(state.timer);state.timer=null;setStatus('Stopped')}
 let taps=[];function tap(){const now=performance.now();taps=taps.filter(t=>now-t<2500);taps.push(now);if(taps.length>=2){const diffs=taps.slice(1).map((t,i)=>t-taps[i]);const avg=diffs.reduce((a,b)=>a+b,0)/diffs.length;state.bpm=Math.round(60000/avg);$('bpm').value=state.bpm;setStatus(`Tap ${state.bpm} BPM`)}}
-async function analyzeAudio(){const f=$('file').files[0]; if(!f){setStatus('Choose audio first');return} setStatus('Analyzing audio...'); const arr=await f.arrayBuffer(); const ctx=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,1,44100); const buf=await ctx.decodeAudioData(arr.slice(0)); const data=buf.getChannelData(0); const sr=buf.sampleRate; const win=Math.floor(sr*0.025), hop=Math.floor(sr*0.0125); let env=[]; for(let i=0;i<data.length-win;i+=hop){let sum=0; for(let j=0;j<win;j++){sum+=Math.abs(data[i+j])} env.push(sum/win)} let flux=[]; for(let i=1;i<env.length;i++)flux.push(Math.max(0,env[i]-env[i-1])); const mean=flux.reduce((a,b)=>a+b,0)/flux.length; const thresh=mean*3.5; let hits=[]; let last=-999; for(let i=1;i<flux.length-1;i++){if(flux[i]>thresh && flux[i]>flux[i-1] && flux[i]>flux[i+1] && i-last>4){hits.push(i*hop/sr);last=i}} state.detected=hits; $('detected').textContent = hits.length? `${hits.length} hits detected: `+hits.slice(0,24).map(x=>x.toFixed(2)+'s').join(', ')+(hits.length>24?'...':'') : 'No clear hits found.'; setStatus('Audio analyzed')}
-function useDetected(){if(!state.detected.length){setStatus('No detected hits');return} const n=displaySteps(); state.grid=Array(n).fill('-'); const dur=state.detected[state.detected.length-1]-state.detected[0] || 1; for(const t of state.detected){const idx=Math.round(((t-state.detected[0])/dur)*(n-1)); if(idx>=0&&idx<n)state.grid[idx]='A'} renderAll(); setStatus('Detected hits mapped to grid')}
-function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=rollDice;$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected}
+function median(arr){if(!arr.length)return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2}
+function estimateFromHits(hits){
+  if(hits.length<2) return {bpm:null, group:[]};
+  const gaps=hits.slice(1).map((t,i)=>t-hits[i]).filter(x=>x>0.03);
+  const unit=median(gaps.filter(x=>x<median(gaps)*1.8)) || median(gaps) || 0.125;
+  const sixteenth=unit; // rough: shortest repeated gap becomes one grid step
+  const bpm=Math.max(40,Math.min(260,Math.round(60/(sixteenth*4))));
+  const group=gaps.map(g=>Math.max(1,Math.min(32,Math.round(g/sixteenth))));
+  return {bpm, group};
+}
+async function analyzeAudio(){const f=$('file').files[0]; if(!f){setStatus('Choose audio first');return} setStatus('Analyzing audio...'); const arr=await f.arrayBuffer(); const ctx=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,1,44100); const buf=await ctx.decodeAudioData(arr.slice(0)); const data=buf.getChannelData(0); const sr=buf.sampleRate; const win=Math.floor(sr*0.018), hop=Math.floor(sr*0.009); let env=[]; for(let i=0;i<data.length-win;i+=hop){let sum=0; for(let j=0;j<win;j++){sum+=Math.abs(data[i+j])} env.push(sum/win)} let flux=[]; for(let i=1;i<env.length;i++)flux.push(Math.max(0,env[i]-env[i-1])); const mean=flux.reduce((a,b)=>a+b,0)/Math.max(1,flux.length); const sorted=[...flux].sort((a,b)=>a-b); const p85=sorted[Math.floor(sorted.length*.85)]||mean; const thresh=Math.max(mean*2.6,p85); let hits=[]; let last=-999; for(let i=1;i<flux.length-1;i++){if(flux[i]>thresh && flux[i]>flux[i-1] && flux[i]>=flux[i+1] && i-last>3){hits.push(i*hop/sr);last=i}} state.detected=hits; const est=estimateFromHits(hits); if(est.bpm){state.bpm=est.bpm;$('bpm').value=est.bpm} if(est.group.length){$('grouping').value=est.group.slice(0,24).join('+');state.group=est.group.slice(0,24)} $('detected').textContent = hits.length? `${hits.length} hits detected. Estimated BPM: ${est.bpm||'—'}. Suggested grouping: ${est.group.slice(0,16).join('+')||'—'}
+Hits: `+hits.slice(0,20).map(x=>x.toFixed(2)+'s').join(', ')+(hits.length>20?'...':'') : 'No clear hits found.'; renderAll(); setStatus('Audio analyzed')}
+function useDetected(){if(!state.detected.length){setStatus('No detected hits');return} const n=displaySteps(); state.grid=Array(n).fill('-'); const first=state.detected[0], dur=Math.max(0.1,(state.detected[state.detected.length-1]-first)); for(const t of state.detected){const idx=Math.round(((t-first)/dur)*(n-1)); if(idx>=0&&idx<n)state.grid[idx]='A'} const est=estimateFromHits(state.detected); if(est.group.length){state.group=est.group.slice(0,24);$('grouping').value=state.group.join('+')} renderAll(); setStatus('Detected hits applied to grid + grouping')}
+
+function downloadBlob(name, type, bytes){const blob=new Blob([bytes],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function varLen(value){let buffer=value&0x7F; const bytes=[]; while(value>>=7){buffer<<=8; buffer|=((value&0x7F)|0x80)} while(true){bytes.push(buffer&0xFF); if(buffer&0x80) buffer>>=8; else break} return bytes}
+function strBytes(s){return Array.from(s).map(c=>c.charCodeAt(0))}
+function midiExport(){
+  const ppq=480, stepTicks=ppq/4, tempo=Math.round(60000000/state.bpm); const track=[];
+  function meta(dt,type,data){track.push(...varLen(dt),0xFF,type,data.length,...data)}
+  function ev(dt,bytes){track.push(...varLen(dt),...bytes)}
+  meta(0,0x51,[(tempo>>16)&255,(tempo>>8)&255,tempo&255]); meta(0,0x58,[state.num,Math.round(Math.log2(state.den)),24,8]);
+  let pending=0; const note=40; // low E-ish
+  for(let i=0;i<state.grid.length;i++){
+    const v=state.grid[i]||'-';
+    if(v==='-' ){pending+=stepTicks; continue}
+    const vel=v==='A'?118:v==='X'?105:v==='U'?92:55;
+    ev(pending,[0x90,note,vel]); ev(Math.max(30,Math.floor(stepTicks*.7)),[0x80,note,0]); pending=Math.max(0,stepTicks-Math.floor(stepTicks*.7));
+  }
+  meta(pending,0x2F,[]);
+  const header=[...strBytes('MThd'),0,0,0,6,0,0,0,1,(ppq>>8)&255,ppq&255];
+  const len=track.length; const trk=[...strBytes('MTrk'),(len>>24)&255,(len>>16)&255,(len>>8)&255,len&255,...track];
+  downloadBlob('chug-grid-guitarpro-ready.mid','audio/midi',new Uint8Array([...header,...trk])); setStatus('MIDI exported');
+}
+function xmlEscape(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function musicXmlExport(){
+  const divisions=4, bs=Math.round(barSteps()), measures=Math.ceil(state.grid.length/bs); let xml=`<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n<score-partwise version="3.1"><part-list><score-part id="P1"><part-name>CHUG GRID Guitar</part-name></score-part></part-list><part id="P1">`;
+  for(let m=0;m<measures;m++){
+    xml+=`<measure number="${m+1}">`;
+    if(m===0) xml+=`<attributes><divisions>${divisions}</divisions><key><fifths>0</fifths></key><time><beats>${state.num}</beats><beat-type>${state.den}</beat-type></time><clef><sign>TAB</sign><line>5</line></clef></attributes><direction placement="above"><direction-type><words>CHUG GRID ${xmlEscape($('grouping').value)}</words></direction-type></direction>`;
+    for(let i=0;i<bs;i++){
+      const idx=m*bs+i, v=state.grid[idx]||'-';
+      if(v==='-') xml+=`<note><rest/><duration>1</duration><type>16th</type></note>`;
+      else {const accent=v==='A'?'<notations><technical><string>6</string><fret>0</fret></technical><articulations><accent/></articulations></notations>':'<notations><technical><string>6</string><fret>0</fret></technical></notations>'; xml+=`<note><pitch><step>E</step><octave>2</octave></pitch><duration>1</duration><type>16th</type>${accent}<lyric><text>${xmlEscape(v)}</text></lyric></note>`}
+    }
+    xml+=`</measure>`;
+  }
+  xml+=`</part></score-partwise>`; downloadBlob('chug-grid-guitarpro-ready.musicxml','application/vnd.recordare.musicxml+xml',xml); setStatus('MusicXML exported');
+}
+
+function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=rollDice;$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport}
 bind();initGrid();generateFromGroup();
