@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CHUG GRID</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div><h1>CHUG GRID</h1><p>riff cycles for guitarists</p></div>
+      <div class="top-controls">
+        <label>BPM <input id="bpm" type="number" value="120" min="30" max="280"></label>
+        <button id="tap">TAP</button>
+        <button id="audio">ACTIVATE AUDIO</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="orbit-card">
+        <canvas id="orbit" width="620" height="620"></canvas>
+        <div class="orbit-info">
+          <b id="barRead">BAR 1/1</b>
+          <span id="cycleRead">Bars to cycle: 1</span>
+          <button id="fit">FIT GRID TO CYCLE</button>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Riff</h2>
+        <label>Time <span class="row"><input id="num" type="number" value="4" min="1"><span>/</span><input id="den" type="number" value="4" min="1"></span></label>
+        <label>Bars <select id="bars"></select></label>
+        <label>Grouping <input id="grouping" value="6+6+6" placeholder="6+6+6"></label>
+        <label>Target realign <span class="row"><input id="target" type="number" value="4" min="1" max="64"><button id="genTarget">GENERATE</button></span></label>
+        <div class="dice">
+          <label>Dice rolls <input id="rolls" type="number" value="6" min="3" max="6"></label>
+          <button id="diceBtn">🎲 DICE LOOP</button>
+        </div>
+        <div class="transport">
+          <button id="play">PLAY</button><button id="stop">STOP</button><button id="step">STEP</button><button id="reset">RESET</button>
+        </div>
+        <div class="legend"><span><b>X</b> chug</span><span><b>x</b> ghost</span><span><b>U</b> up</span><span><b>-</b> rest</span></div>
+      </aside>
+    </main>
+
+    <section class="grid-card">
+      <div class="grid-head"><h2>Grid</h2><span id="stepsRead"></span></div>
+      <div id="grid" class="grid"></div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
