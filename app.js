@@ -7,7 +7,22 @@ function riffLen(){return state.group.reduce((a,b)=>a+b,0)||1}
 function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a||1}
 function lcm(a,b){return Math.abs(a*b)/gcd(a,b)}
 function setStatus(t){$('status').textContent=t}
-function initGrid(){const n=displaySteps();state.grid=Array.from({length:n},(_,i)=>state.grid[i]||'-');renderAll()}
+function initGrid(){
+  const n=displaySteps();
+  const oldGrid=state.grid&&state.grid.length?state.grid.slice():[];
+  if(!oldGrid.length){
+    state.grid=Array(n).fill('-');
+  } else if(n===oldGrid.length){
+    state.grid=oldGrid;
+  } else if(n>oldGrid.length){
+    // When the user extends Riff Length/Bars, repeat the existing riff instead of adding silent bars.
+    state.grid=Array.from({length:n},(_,i)=>oldGrid[i%oldGrid.length]||'-');
+  } else {
+    state.grid=oldGrid.slice(0,n);
+  }
+  state.step=state.step % Math.max(1,n);
+  renderAll();
+}
 function parseGroup(){const g=$('grouping').value.split(/[+\s,]+/).map(x=>parseInt(x,10)).filter(x=>Number.isFinite(x)&&x>0&&x<=64);state.group=g.length?g:[4,4,4,4];$('grouping').value=state.group.join('+')}
 function groupHits(limit,cycle=false){const hits=[];let pos=0;const len=riffLen();while(pos<limit){hits.push(pos);let acc=0;for(const g of state.group){acc+=g;const p=pos+acc;if(p<limit)hits.push(p)}pos+= cycle?len:len}return [...new Set(hits)].filter(x=>x<limit)}
 function generateFromGroup(){parseGroup();const n=displaySteps();state.grid=Array(n).fill('-'); if(state.mode==='linear'){let p=0;while(p<n){state.grid[p]='A';for(const g of state.group){p+=g;if(p<n)state.grid[p]='A'} }} else {for(const p of groupHits(n,true))state.grid[p]='A'} state.step=0;renderAll();setStatus('Grouping generated')}
