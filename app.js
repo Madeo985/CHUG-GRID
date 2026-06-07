@@ -26,7 +26,7 @@ function initGrid(){
 function parseGroup(){const g=$('grouping').value.split(/[+\s,]+/).map(x=>parseInt(x,10)).filter(x=>Number.isFinite(x)&&x>0&&x<=64);state.group=g.length?g:[4,4,4,4];$('grouping').value=state.group.join('+')}
 function groupHits(limit,cycle=false){const hits=[];let pos=0;const len=riffLen();while(pos<limit){hits.push(pos);let acc=0;for(const g of state.group){acc+=g;const p=pos+acc;if(p<limit)hits.push(p)}pos+= cycle?len:len}return [...new Set(hits)].filter(x=>x<limit)}
 function generateFromGroup(){parseGroup();const n=displaySteps();state.grid=Array(n).fill('-'); if(state.mode==='linear'){let p=0;while(p<n){state.grid[p]='A';for(const g of state.group){p+=g;if(p<n)state.grid[p]='A'} }} else {for(const p of groupHits(n,true))state.grid[p]='A'} state.step=0;renderAll();setStatus('Grouping generated')}
-function rollDice(){const rolls=parseInt($('rolls').value,10);state.dice=Array.from({length:rolls},()=>1+Math.floor(Math.random()*6));$('diceOut').textContent=state.dice.join(' + ')}
+function rollDice(){const rolls=parseInt($('rolls').value,10);state.dice=Array.from({length:rolls},()=>1+Math.floor(Math.random()*6));$('diceOut').textContent=state.dice.join(' + '); return state.dice}
 function applyDice(){if(!state.dice.length)rollDice();$('grouping').value=state.dice.join('+');generateFromGroup()}
 function renderGrid(){const n=displaySteps(),bs=barSteps();const grid=$('grid');grid.innerHTML='';grid.style.gridTemplateColumns=`repeat(${Math.min(16,n)}, minmax(34px,1fr))`;for(let i=0;i<n;i++){const d=document.createElement('button');d.className='cell';const v=state.grid[i]||'-';if(v==='x')d.classList.add('ghost'); if(v==='X')d.classList.add('chug'); if(v==='A')d.classList.add('accent'); if(v==='U')d.classList.add('up'); if(i===state.step%n)d.classList.add('playhead'); if(i%bs===0)d.classList.add('bar-start'); d.innerHTML=`<small>${labelFor(i,bs)}</small>${v}`; d.onclick=()=>{const idx=symbols.indexOf(state.grid[i]||'-');state.grid[i]=symbols[(idx+1)%symbols.length];renderAll();playCell(state.grid[i])}; grid.appendChild(d)} }
 function labelFor(i,bs){const within=i%bs; const beat=Math.floor(within/4)+1; return ['','e','&','a'][within%4] || beat}
@@ -62,7 +62,7 @@ function updateBarsDropdown(){
   }
 }
 
-function renderMesh(){const bs=Math.round(barSteps()), rl=riffLen(); const align=lcm(bs,rl); updateBarsDropdown(); $('riffCycle').textContent=`${rl}/16`; $('barCycle').textContent=`${bs}/16`; $('realign').textContent=`${align/bs} bars`; $('totalSteps').textContent=align; const track=$('alignTrack'); track.innerHTML=''; const hits=groupHits(align,true); for(let i=0;i<align;i++){const c=document.createElement('div');c.className='align-cell'; if(i%bs===0)c.classList.add('bar'); if(hits.includes(i))c.classList.add('hit'); if(i===0||i===align)c.classList.add('realign'); if(i===state.step%align)c.classList.add('active'); track.appendChild(c)} }
+function renderMesh(){const bs=Math.round(barSteps()), rl=riffLen(); const align=lcm(bs,rl); updateBarsDropdown(); $('riffCycle').textContent=`${rl}/16`; $('barCycle').textContent=`${bs}/16`; $('realign').textContent=`${align/bs} bars`; setStatus(`Bars to cycle: ${align/bs}`); $('totalSteps').textContent=align; const track=$('alignTrack'); track.innerHTML=''; const hits=groupHits(align,true); for(let i=0;i<align;i++){const c=document.createElement('div');c.className='align-cell'; if(i%bs===0)c.classList.add('bar'); if(hits.includes(i))c.classList.add('hit'); if(i===0||i===align)c.classList.add('realign'); if(i===state.step%align)c.classList.add('active'); track.appendChild(c)} }
 
 function fitGridToRealignment(){
   parseGroup();
@@ -165,6 +165,75 @@ function drawOrbit(){
   function hand(a,r,col,lw,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.stroke();ctx.restore()}
   function dot(x,y,r,col){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0}
 }
+
+function exactCycleCandidates(targetBars){
+  const bs=Math.max(1,Math.round(barSteps()));
+  const total=bs*Math.max(1,Math.round(targetBars));
+  const out=[];
+  for(let rl=2; rl<=Math.min(total,512); rl++){
+    if(Math.round(lcm(bs,rl)/bs)===Math.round(targetBars)) out.push(rl);
+  }
+  return out;
+}
+function chooseCycleLengthForTarget(targetBars){
+  const bs=Math.max(1,Math.round(barSteps()));
+  const candidates=exactCycleCandidates(targetBars);
+  if(!candidates.length) return bs*Math.max(1,Math.round(targetBars));
+  const sweet=candidates.filter(x=>x>bs && x<=bs*3.5);
+  if(sweet.length){
+    // avoid always picking the same length: choose one of the most guitar-friendly candidates.
+    return sweet[Math.floor(Math.random()*sweet.length)];
+  }
+  const notTiny=candidates.filter(x=>x>=Math.max(5,Math.floor(bs/2)));
+  if(notTiny.length) return notTiny[Math.floor(notTiny.length/2)];
+  return candidates[candidates.length-1];
+}
+function randomGroupingForLength(total){
+  total=Math.max(1,Math.round(total));
+  if(total<=8) return [total];
+  const chunks=[];
+  let rem=total;
+  const choices=[3,4,5,6,7,8,5,6,4];
+  while(rem>0){
+    if(rem<=8){ chunks.push(rem); break; }
+    let c=choices[Math.floor(Math.random()*choices.length)];
+    // avoid leaving a final 1 when possible
+    if(rem-c===1) c=Math.max(2,c-1);
+    if(c>=rem) c=Math.max(2,rem-2);
+    chunks.push(c); rem-=c;
+    if(chunks.length>64){ chunks.push(rem); break; }
+  }
+  return chunks.filter(x=>x>0);
+}
+function generateTargetRealignment(){
+  const target=Math.max(1,Math.min(64,parseInt($('targetBars').value,10)||1));
+  const bs=Math.max(1,Math.round(barSteps()));
+  const rl=chooseCycleLengthForTarget(target);
+  const group=randomGroupingForLength(rl);
+  state.group=group;
+  $('grouping').value=group.join('+');
+  state.bars=target;
+  updateBarsDropdown();
+  $('bars').value=String(target);
+  generateFromGroup();
+  const actual=Math.round(lcm(bs,rl)/bs);
+  $('targetOut').innerHTML=`Requested return: <b>${target} bars</b><br>Generated riff cycle: <b>${rl}/16</b><br>Actual return: <b>${actual} bars</b><br>Grouping: <b>${group.join('+')}</b>`;
+  setStatus(`Random riff generated: returns after ${actual} bars`);
+}
+function fitCurrentToTargetBars(){
+  parseGroup();
+  const bs=Math.max(1,Math.round(barSteps()));
+  const rl=riffLen();
+  const actual=Math.round(lcm(bs,rl)/bs);
+  state.bars=Math.max(1,Math.min(128,actual));
+  updateBarsDropdown();
+  $('bars').value=String(state.bars);
+  generateFromGroup();
+  if($('targetBars')) $('targetBars').value=String(state.bars);
+  if($('targetOut')) $('targetOut').innerHTML=`Current riff realigns after <b>${actual} bars</b>. Grid fitted to full cycle.`;
+  setStatus(`Grid fitted: ${actual} bars`);
+}
+
 function renderAll(){renderGrid();renderMesh();drawOrbit()}
 function ensureAudio(){if(!state.audio){state.audio=new (window.AudioContext||window.webkitAudioContext)()} if(state.audio.state==='suspended')state.audio.resume();}
 function tone(freq,dur=0.045,type='square',gain=.06){if(!state.audio)return;const ctx=state.audio,o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=gain;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);o.stop(ctx.currentTime+dur)}
@@ -223,5 +292,5 @@ function musicXmlExport(){
   xml+=`</part></score-partwise>`; downloadBlob('chug-grid-guitarpro-ready.musicxml','application/vnd.recordare.musicxml+xml',xml); setStatus('MusicXML exported');
 }
 
-function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=rollDice;$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
+function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=()=>{rollDice(); applyDice();};$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('targetGenerate')) $('targetGenerate').onclick=generateTargetRealignment; if($('targetFit')) $('targetFit').onclick=fitCurrentToTargetBars; if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
 bind();initGrid();generateFromGroup();

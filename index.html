@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CHUG GRID — Font Refresh v1</title>
+  <title>CHUG GRID — Target Riff Generator v2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
         <p class="eyebrow">riff sketchpad for modern metal guitarists</p>
         <h1>CHUG GRID</h1>
       </div>
-      <div class="status" id="status">Ready</div>
+      <div class="status" id="status">Target riff generator v2</div>
     </header>
 
     <section class="top">
@@ -48,10 +48,26 @@
         <div class="panel-title mini"><span>Dice riff</span><small>3–6 rolls → cyclic grouping</small></div>
         <div class="row">
           <label>Rolls <select id="rolls"><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
-          <button id="dice" class="primary">🎲 Roll</button>
-          <button id="applyDice">Apply</button>
+          <button id="dice" class="primary">🎲 Roll + Generate</button>
+          <button id="applyDice">Apply current</button>
         </div>
         <div class="dice-output" id="diceOut">—</div>
+
+
+
+        <div class="target-box">
+          <div class="panel-title mini"><span>CREATE RIFF BY RETURN POINT</span><small>scegli il riallineamento, lui inventa il riff</small></div>
+          <div class="target-line">
+            <span>Voglio che torni sull’1 dopo</span>
+            <input id="targetBars" type="number" min="1" max="64" value="6">
+            <span>bars</span>
+          </div>
+          <div class="row">
+            <button id="targetGenerate" class="primary big-target">GENERATE RANDOM RIFF</button>
+            <button id="targetFit">Fit current riff</button>
+          </div>
+          <div class="target-output" id="targetOut">Esempio: metti 5, 7, 9… e CHUG GRID crea un grouping casuale che torna sull’1 dopo quel numero di battute.</div>
+        </div>
 
         <div class="panel-title mini"><span>Grouping</span><small>es. 6+6+6 oppure 5+3+4+6+2+5</small></div>
         <div class="row">
@@ -70,7 +86,7 @@
       <div class="mesh-stats">
         <div><small>Riff cycle</small><strong id="riffCycle">18/16</strong></div>
         <div><small>Bar cycle</small><strong id="barCycle">16/16</strong></div>
-        <div><small>Realignment</small><strong id="realign">8 bars</strong></div>
+        <div><small>Bars to cycle</small><strong id="realign">8 bars</strong></div>
         <div><small>Total steps</small><strong id="totalSteps">128</strong></div>
       </div>
       <div class="align-actions"><button id="fitAlign" class="primary">Fit grid to realignment</button><button id="fitOneCycle">Fit grid to riff cycle</button></div>
