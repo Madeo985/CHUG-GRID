@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#05070b" />
+  <title>CHUG GRID</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <h1>CHUG GRID</h1>
+        <p>Riff sketchpad for modern metal guitarists</p>
+      </div>
+      <div class="topButtons">
+        <button id="audioBtn" class="mini neon">Attiva audio</button>
+        <button id="helpBtn" class="mini">?</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel controls">
+        <label>TEMPO</label>
+        <div class="tempoRow">
+          <input id="bpm" type="number" min="30" max="300" value="120" />
+          <span>BPM</span>
+          <button id="tapBtn">TAP</button>
+        </div>
+
+        <label>TIME SIGNATURE</label>
+        <div class="sigRow">
+          <input id="beats" type="number" min="1" max="32" value="4" />
+          <span>/</span>
+          <select id="denom">
+            <option>4</option><option>8</option><option>16</option><option>13</option>
+          </select>
+        </div>
+
+        <label>RIFF LENGTH</label>
+        <div class="seg" id="barsSeg">
+          <button data-bars="1">1</button><button data-bars="2">2</button><button data-bars="3">3</button><button data-bars="4" class="on">4</button><button data-bars="6">6</button><button data-bars="8">8</button>
+        </div>
+        <small>battute</small>
+      </section>
+
+      <section class="orbitWrap">
+        <div class="orbitLabels">
+          <div><b class="green">PULSE</b><span id="pulseLabel">4/4</span></div>
+          <div><b class="violet">RIFF</b><span id="riffLabel">4 battute</span></div>
+        </div>
+        <canvas id="orbit" width="560" height="560"></canvas>
+        <div class="offsetBox">
+          <label>OFFSET</label>
+          <button id="offsetMinus">−</button>
+          <strong id="offsetVal">0</strong>
+          <button id="offsetPlus">+</button>
+        </div>
+      </section>
+
+      <aside class="panel side">
+        <h3>STEP TYPES</h3>
+        <button class="tool on" data-tool="X"><b>X</b><span>CHUG / accent</span></button>
+        <button class="tool" data-tool="x"><b>x</b><span>Ghost light</span></button>
+        <button class="tool" data-tool="U"><b>U</b><span>Upstroke</span></button>
+        <button class="tool" data-tool="-"><b>-</b><span>Rest</span></button>
+        <hr>
+        <label>GROUPING</label>
+        <div class="groupRow">
+          <input id="grouping" value="6+6+6+4" />
+          <button id="applyGroup">Auto</button>
+        </div>
+      </aside>
+
+      <section class="panel dice">
+        <h3>🎲 DICE GENERATOR</h3>
+        <div class="diceTop">
+          <div>
+            <label>TIRI</label>
+            <div class="seg" id="diceSeg"><button data-rolls="3">3</button><button data-rolls="4">4</button><button data-rolls="5">5</button><button data-rolls="6" class="on">6</button></div>
+          </div>
+          <div>
+            <label>RISULTATO</label>
+            <div id="diceResult" class="diceResult">6 6 6 4 3 5</div>
+          </div>
+        </div>
+        <button id="rollBtn" class="wide greenBtn">Generate loop</button>
+        <small>Genera numeri 1–6 e crea accenti sul 4/4.</small>
+      </section>
+
+      <section class="gridPanel panel">
+        <div class="gridHeader">
+          <h2><span id="barCount">4</span> battute · <span id="stepCount">64</span> step</h2>
+          <div class="legend"><span>X chug</span><span>x ghost</span><span>U up</span><span>- pausa</span></div>
+        </div>
+        <div id="gridScroller" class="gridScroller">
+          <div id="grid" class="grid"></div>
+        </div>
+      </section>
+
+      <footer class="transport panel">
+        <button id="playBtn" class="big play">▶ PLAY</button>
+        <button id="stepBtn" class="big">▶ STEP</button>
+        <button id="stopBtn" class="big">■ STOP</button>
+        <button id="resetBtn" class="big">↻ RESET</button>
+        <div class="readout"><b id="currentStep">1</b><span>current step</span></div>
+        <button id="clearBtn" class="big danger">CLEAR</button>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="help">
+    <h2>Come si usa</h2>
+    <p><b>Griglia:</b> ogni casella è un sedicesimo. Clicca una casella per mettere X, x, U o pausa.</p>
+    <p><b>Group:</b> scrivi numeri tipo 6+6+6: l'app mette accenti X a quelle distanze.</p>
+    <p><b>Dado:</b> scegli 3–6 tiri, genera numeri casuali e crea un loop.</p>
+    <button id="closeHelp">Ok</button>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
