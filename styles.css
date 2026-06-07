@@ -53,11 +53,3 @@
   line-height:1.35;
 }
 .target-output b{color:#75ff66}
-
-/* Live record module */
-.record-box{margin:18px 0;padding:14px;border:1px solid rgba(121,255,168,.26);border-radius:18px;background:linear-gradient(180deg,rgba(121,255,168,.09),rgba(155,93,229,.055));box-shadow:0 0 24px rgba(121,255,168,.08) inset}
-.record-display{font-family:var(--mono,monospace);font-size:13px;line-height:1.35;padding:10px 12px;border-radius:13px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1);color:#eafff1;margin:8px 0 10px}
-.record-row .rec{background:linear-gradient(135deg,#ff3b6b,#ff8a00)!important;color:white!important;border-color:rgba(255,100,100,.55)!important;box-shadow:0 0 20px rgba(255,59,107,.25)}
-.record-row .hit-button{background:linear-gradient(135deg,#79ffa8,#5de1ff)!important;color:#06110a!important;border-color:rgba(121,255,168,.6)!important;font-weight:900;box-shadow:0 0 22px rgba(121,255,168,.35)}
-.recording .record-box{animation:recPulse 1s infinite alternate}
-@keyframes recPulse{from{box-shadow:0 0 16px rgba(255,59,107,.18) inset}to{box-shadow:0 0 36px rgba(255,59,107,.38) inset}}

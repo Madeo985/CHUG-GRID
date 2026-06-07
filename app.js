@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={bpm:120,num:4,den:4,bars:4,step:0,playing:false,timer:null,grid:[],group:[6,6,6],mode:'cycle',audio:null,dice:[],detected:[],recording:false,countingIn:false,recTimer:null,recStart:0,recHits:[],recLastStep:-999};
+const state={bpm:120,num:4,den:4,bars:4,step:0,playing:false,timer:null,grid:[],group:[6,6,6],mode:'cycle',audio:null,dice:[],detected:[]};
 const symbols=['-','x','X','A','U'];
 function barSteps(){return state.num*(16/state.den)}
 function displaySteps(){return Math.max(1,Math.round(barSteps()*state.bars))}
@@ -168,57 +168,86 @@ function drawOrbit(){
 
 function exactCycleCandidates(targetBars){
   const bs=Math.max(1,Math.round(barSteps()));
-  const total=bs*Math.max(1,Math.round(targetBars));
+  const target=Math.max(1,Math.round(targetBars));
+  const total=bs*target;
   const out=[];
-  for(let rl=2; rl<=Math.min(total,512); rl++){
-    if(Math.round(lcm(bs,rl)/bs)===Math.round(targetBars)) out.push(rl);
+  // A riff length is valid only if its FIRST realignment is exactly target bars.
+  for(let rl=2; rl<=Math.min(total,1024); rl++){
+    const actual=Math.round(lcm(bs,rl)/bs);
+    if(actual===target) out.push(rl);
   }
   return out;
 }
 function chooseCycleLengthForTarget(targetBars){
   const bs=Math.max(1,Math.round(barSteps()));
-  const candidates=exactCycleCandidates(targetBars);
-  if(!candidates.length) return bs*Math.max(1,Math.round(targetBars));
-  const sweet=candidates.filter(x=>x>bs && x<=bs*3.5);
-  if(sweet.length){
-    // avoid always picking the same length: choose one of the most guitar-friendly candidates.
-    return sweet[Math.floor(Math.random()*sweet.length)];
-  }
-  const notTiny=candidates.filter(x=>x>=Math.max(5,Math.floor(bs/2)));
-  if(notTiny.length) return notTiny[Math.floor(notTiny.length/2)];
-  return candidates[candidates.length-1];
+  const target=Math.max(1,Math.round(targetBars));
+  const candidates=exactCycleCandidates(target);
+  if(!candidates.length) return bs*target;
+
+  // Prefer lengths that feel like riffs, not tiny one-number jokes.
+  // For example target 5 bars can be 5,10,20,40,80; 20/40 are nicer.
+  const minLen=Math.max(7, Math.floor(bs*0.75));
+  const maxLen=Math.min(bs*target, bs*3);
+  const sweet=candidates.filter(x=>x>=minLen && x<=maxLen);
+  const pool=sweet.length?sweet:candidates.filter(x=>x>=5);
+  return pool[Math.floor(Math.random()*pool.length)] || candidates[candidates.length-1];
 }
 function randomGroupingForLength(total){
   total=Math.max(1,Math.round(total));
   if(total<=8) return [total];
   const chunks=[];
   let rem=total;
-  const choices=[3,4,5,6,7,8,5,6,4];
+  const choices=[3,4,5,6,7,8,4,5,6,3,5];
   while(rem>0){
     if(rem<=8){ chunks.push(rem); break; }
-    let c=choices[Math.floor(Math.random()*choices.length)];
-    // avoid leaving a final 1 when possible
-    if(rem-c===1) c=Math.max(2,c-1);
-    if(c>=rem) c=Math.max(2,rem-2);
-    chunks.push(c); rem-=c;
-    if(chunks.length>64){ chunks.push(rem); break; }
+    let valid=choices.filter(c=>c<rem && rem-c!==1);
+    let c=valid.length?valid[Math.floor(Math.random()*valid.length)]:Math.min(8,rem);
+    chunks.push(c);
+    rem-=c;
+    if(chunks.length>128){ if(rem>0) chunks.push(rem); break; }
   }
   return chunks.filter(x=>x>0);
 }
+function forceTargetButtonFeedback(on){
+  const b=$('targetGenerate');
+  if(!b) return;
+  b.textContent=on?'GENERATED ✓':'GENERATE RANDOM RIFF';
+  if(on) setTimeout(()=>{ if($('targetGenerate')) $('targetGenerate').textContent='GENERATE RANDOM RIFF'; },900);
+}
 function generateTargetRealignment(){
-  const target=Math.max(1,Math.min(64,parseInt($('targetBars').value,10)||1));
+  const input=$('targetBars');
+  const out=$('targetOut');
+  const target=Math.max(1,Math.min(64,parseInt(input?.value,10)||1));
   const bs=Math.max(1,Math.round(barSteps()));
   const rl=chooseCycleLengthForTarget(target);
   const group=randomGroupingForLength(rl);
-  state.group=group;
-  $('grouping').value=group.join('+');
-  state.bars=target;
-  updateBarsDropdown();
-  $('bars').value=String(target);
-  generateFromGroup();
   const actual=Math.round(lcm(bs,rl)/bs);
-  $('targetOut').innerHTML=`Requested return: <b>${target} bars</b><br>Generated riff cycle: <b>${rl}/16</b><br>Actual return: <b>${actual} bars</b><br>Grouping: <b>${group.join('+')}</b>`;
-  setStatus(`Random riff generated: returns after ${actual} bars`);
+
+  state.group=group;
+  state.mode='cycle';
+  const cycleRadio=document.querySelector('input[name=mode][value=cycle]');
+  if(cycleRadio) cycleRadio.checked=true;
+  const grouping=$('grouping');
+  if(grouping) grouping.value=group.join('+');
+
+  // The important part: set grid length to the whole realignment span.
+  state.bars=actual;
+  updateBarsDropdown();
+  const bars=$('bars');
+  if(bars) bars.value=String(state.bars);
+
+  // Fill the complete cycle with hits from the generated grouping.
+  const n=displaySteps();
+  state.grid=Array(n).fill('-');
+  for(const p of groupHits(n,true)) state.grid[p]='A';
+  state.step=0;
+  renderAll();
+
+  if(out){
+    out.innerHTML=`<b>Generated.</b><br>Target return: <b>${target} bars</b><br>Actual return: <b>${actual} bars</b><br>Riff cycle: <b>${rl}/16</b><br>Grouping: <b>${group.join('+')}</b>`;
+  }
+  forceTargetButtonFeedback(true);
+  setStatus(`Generated target riff: returns after ${actual} bars`);
 }
 function fitCurrentToTargetBars(){
   parseGroup();
@@ -292,143 +321,11 @@ function musicXmlExport(){
   xml+=`</part></score-partwise>`; downloadBlob('chug-grid-guitarpro-ready.musicxml','application/vnd.recordare.musicxml+xml',xml); setStatus('MusicXML exported');
 }
 
-
-function setRecDisplay(msg){ const el=$('recDisplay'); if(el) el.innerHTML=msg; }
-function stopRecordOnly(){
-  if(state.recTimer){ clearInterval(state.recTimer); state.recTimer=null; }
-  state.countingIn=false;
-  state.recording=false;
-  document.body.classList.remove('recording');
-}
-function startLiveRecord(){
-  try{
-    ensureAudio();
-    stop();
-    stopRecordOnly();
-    state.bpm=+$('bpm').value||120;
-    state.num=+$('num').value||4;
-    state.den=+$('den').value||4;
-    state.bars=+$('bars').value||4;
-    const n=displaySteps();
-    state.grid=Array(n).fill('-');
-    state.step=0;
-    state.recHits=[];
-    state.recLastStep=-999;
-    renderAll();
-    let count=0;
-    const quarterMs=60000/state.bpm;
-    state.countingIn=true;
-    document.body.classList.add('recording');
-    setStatus('LIVE REC count-in');
-    setRecDisplay('<b>COUNT-IN</b> preparati…');
-    state.recTimer=setInterval(()=>{
-      count++;
-      if(count<=4){
-        tone(count===4?1320:880,.07,'square',.10);
-        setRecDisplay(`<b>COUNT-IN</b> ${count}/4`);
-        return;
-      }
-      clearInterval(state.recTimer);
-      state.recTimer=null;
-      state.countingIn=false;
-      state.recording=true;
-      state.playing=true;
-      state.recStart=performance.now();
-      state.step=0;
-      const interval=60000/state.bpm/4;
-      setRecDisplay('<b>REC ON</b> premi <b>HIT</b> o barra spaziatrice. STOP REC per chiudere.');
-      setStatus('LIVE REC ON');
-      state.timer=setInterval(()=>{
-        const bs=Math.round(barSteps());
-        if(state.step%bs===0) tone(880,.035,'square',.045);
-        else if(state.step%4===0) tone(440,.025,'square',.025);
-        playCell(state.grid[state.step%state.grid.length]);
-        state.step++;
-        renderAll();
-      }, interval);
-    }, quarterMs);
-  }catch(err){
-    console.error(err);
-    setRecDisplay('<b>ERRORE REC:</b> '+err.message);
-    setStatus('REC error');
-  }
-}
-function recordHit(){
-  try{
-    if(!state.recording){
-      setRecDisplay('Premi prima <b>REC</b>, aspetta i 4 colpi, poi HIT.');
-      return;
-    }
-    const interval=60000/state.bpm/4;
-    const elapsed=performance.now()-state.recStart;
-    const absStep=Math.max(0,Math.round(elapsed/interval));
-    // anti double-click: evita due hit sullo stesso sedicesimo
-    if(Math.abs(absStep-state.recLastStep)<1){ return; }
-    state.recLastStep=absStep;
-    const n=displaySteps();
-    const idx=((absStep % n)+n)%n;
-    state.grid[idx]='A';
-    state.recHits.push(absStep);
-    playCell('A');
-    renderAll();
-    setRecDisplay(`<b>REC ON</b> hits: ${state.recHits.length} • step ${idx+1}/${n}`);
-  }catch(err){
-    console.error(err);
-    setRecDisplay('<b>ERRORE HIT:</b> '+err.message);
-  }
-}
-function finishLiveRecord(){
-  try{
-    const wasActive=state.recording||state.countingIn;
-    stopRecordOnly();
-    stop();
-    if(!wasActive){ setRecDisplay('Nessuna registrazione attiva.'); return; }
-    const n=displaySteps();
-    const positions=[...new Set(state.recHits.map(x=>((x%n)+n)%n))].sort((a,b)=>a-b);
-    state.grid=Array(n).fill('-');
-    for(const p of positions) state.grid[p]='A';
-    if(positions.length<2){
-      renderAll();
-      setRecDisplay(`Registrati ${positions.length} colpi. Servono almeno 2 colpi per creare il grouping.`);
-      setStatus('REC stopped');
-      return;
-    }
-    const group=[];
-    for(let i=0;i<positions.length;i++){
-      const cur=positions[i];
-      const next=positions[(i+1)%positions.length]+(i===positions.length-1?n:0);
-      const gap=next-cur;
-      if(gap>0) group.push(gap);
-    }
-    state.group=group;
-    const gi=$('grouping'); if(gi) gi.value=group.join('+');
-    if(typeof updateBarsDropdown==='function') updateBarsDropdown();
-    renderAll();
-    setRecDisplay(`<b>DONE</b> ${positions.length} colpi → <b>${group.join('+')}</b>`);
-    setStatus('Live riff applied');
-  }catch(err){
-    console.error(err);
-    setRecDisplay('<b>ERRORE STOP REC:</b> '+err.message);
-    setStatus('REC stop error');
-  }
-}
-
-function bind(){
-  const on=(id,ev,fn)=>{const el=$(id); if(el) el.addEventListener(ev,fn);};
-  ['bpm','num','den','bars'].forEach(id=>on(id,'change',()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()}));
-  document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',()=>{state.mode=r.value;generateFromGroup()}));
-  on('audio','click',()=>{ensureAudio();tone(660);setStatus('Audio ready')});
-  on('play','click',play); on('stop','click',()=>{stopRecordOnly();stop();});
-  on('reset','click',()=>{state.step=0;renderAll();setStatus('Reset')});
-  on('step','click',()=>{ensureAudio();tick();setStatus('Step')});
-  on('tap','click',tap);
-  on('dice','click',()=>{rollDice(); applyDice();}); on('applyDice','click',applyDice); on('applyGroup','click',generateFromGroup);
-  on('analyze','click',analyzeAudio); on('useDetected','click',useDetected);
-  on('exportMidi','click',midiExport); on('exportXml','click',musicXmlExport);
-  on('targetGenerate','click',generateTargetRealignment); on('targetFit','click',fitCurrentToTargetBars);
-  on('fitAlign','click',fitGridToRealignment); on('fitOneCycle','click',fitGridToRiffCycle);
-  on('recStart','click',startLiveRecord); on('recHit','click',recordHit); on('recStop','click',finishLiveRecord);
-  window.addEventListener('keydown',e=>{if(e.code==='Space' && state.recording){e.preventDefault();recordHit();}});
-  setStatus('Live Record Fix v2 ready');
-}
-bind();initGrid();generateFromGroup();
+function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=()=>{rollDice(); applyDice();};$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('targetGenerate')) $('targetGenerate').onclick=generateTargetRealignment; if($('targetFit')) $('targetFit').onclick=fitCurrentToTargetBars; if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
+bind();
+// Extra fallback: useful if GitHub/browser cache keeps a stale inline handler state.
+document.addEventListener('DOMContentLoaded',()=>{
+  const b=document.getElementById('targetGenerate');
+  if(b) b.addEventListener('click', (e)=>{ e.preventDefault(); generateTargetRealignment(); });
+});
+initGrid();generateFromGroup();
