@@ -53,3 +53,6 @@
   line-height:1.35;
 }
 .target-output b{color:#75ff66}
+.record-box{margin:18px 0;padding:16px;border:1px solid rgba(117,255,102,.25);border-radius:18px;background:linear-gradient(135deg,rgba(117,255,102,.08),rgba(255,79,216,.06));box-shadow:0 0 24px rgba(117,255,102,.08)}
+.record-display{min-height:42px;padding:12px 14px;margin:10px 0;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.08);color:#eaf7ff;font-weight:800;letter-spacing:.02em}
+.record-row{gap:10px;align-items:center}.rec{background:#ff304f!important;color:white!important;border-color:rgba(255,48,79,.8)!important;box-shadow:0 0 22px rgba(255,48,79,.22)!important}.hit-button{font-size:18px!important;font-weight:1000!important;min-height:56px;padding-inline:22px!important;background:#75ff66!important;color:#061006!important;border-color:#75ff66!important;box-shadow:0 0 28px rgba(117,255,102,.35)!important}.hit-button:active{transform:scale(.97)}

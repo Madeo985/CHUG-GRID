@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={bpm:120,num:4,den:4,bars:4,step:0,playing:false,timer:null,grid:[],group:[6,6,6],mode:'cycle',audio:null,dice:[],detected:[]};
+const state={bpm:120,num:4,den:4,bars:4,step:0,playing:false,timer:null,grid:[],group:[6,6,6],mode:'cycle',audio:null,dice:[],detected:[],recording:false,countingIn:false,recTimer:null,recStart:0,recHits:[],recAbsoluteStep:0};
 const symbols=['-','x','X','A','U'];
 function barSteps(){return state.num*(16/state.den)}
 function displaySteps(){return Math.max(1,Math.round(barSteps()*state.bars))}
@@ -292,5 +292,99 @@ function musicXmlExport(){
   xml+=`</part></score-partwise>`; downloadBlob('chug-grid-guitarpro-ready.musicxml','application/vnd.recordare.musicxml+xml',xml); setStatus('MusicXML exported');
 }
 
-function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=()=>{rollDice(); applyDice();};$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('targetGenerate')) $('targetGenerate').onclick=generateTargetRealignment; if($('targetFit')) $('targetFit').onclick=fitCurrentToTargetBars; if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
+
+function setRecDisplay(msg){ const el=$('recDisplay'); if(el) el.innerHTML=msg; }
+function stopRecordTimers(){
+  if(state.recTimer){ clearInterval(state.recTimer); state.recTimer=null; }
+  state.countingIn=false;
+  state.recording=false;
+}
+function startLiveRecord(){
+  ensureAudio();
+  stop();
+  stopRecordTimers();
+  const n=displaySteps();
+  state.grid=Array(n).fill('-');
+  state.step=0;
+  state.recHits=[];
+  state.recAbsoluteStep=0;
+  renderAll();
+  state.countingIn=true;
+  let count=1;
+  const quarterMs=60000/state.bpm;
+  setRecDisplay(`<b>COUNT-IN</b> ${count}/4`);
+  tone(880,.055,'square',.08);
+  state.recTimer=setInterval(()=>{
+    count++;
+    if(count<=4){
+      setRecDisplay(`<b>COUNT-IN</b> ${count}/4`);
+      tone(count===4?1200:880,.055,'square',.08);
+      return;
+    }
+    clearInterval(state.recTimer);
+    state.recTimer=null;
+    state.countingIn=false;
+    state.recording=true;
+    state.playing=true;
+    state.recStart=performance.now();
+    setRecDisplay(`<b>REC ON</b> premi HIT a tempo. Space = HIT.`);
+    const interval=60000/state.bpm/4;
+    state.timer=setInterval(()=>{
+      const bs=barSteps();
+      if(state.step%bs===0) tone(880,.035,'square',.04);
+      else if(state.step%4===0) tone(440,.025,'square',.025);
+      playCell(state.grid[state.step%state.grid.length]);
+      state.step+=1;
+      state.recAbsoluteStep+=1;
+      renderAll();
+    }, interval);
+    setStatus('Recording live riff');
+  }, quarterMs);
+}
+function recordHit(){
+  if(!state.recording){
+    setRecDisplay('Premi prima <b>REC</b>, aspetta i 4 colpi, poi HIT.');
+    return;
+  }
+  const interval=60000/state.bpm/4;
+  const elapsed=performance.now()-state.recStart;
+  const absStep=Math.max(0,Math.round(elapsed/interval));
+  const n=displaySteps();
+  const idx=((absStep % n)+n)%n;
+  state.grid[idx]='A';
+  state.recHits.push(absStep);
+  playCell('A');
+  setRecDisplay(`<b>REC ON</b> hits: ${state.recHits.length} • last step ${idx+1}/${n}`);
+  renderAll();
+}
+function finishLiveRecord(){
+  const wasRecording=state.recording || state.countingIn;
+  stopRecordTimers();
+  stop();
+  if(!wasRecording){ setRecDisplay('Nessuna registrazione attiva.'); return; }
+  const n=displaySteps();
+  const positions=[...new Set(state.recHits.map(x=>((x%n)+n)%n))].sort((a,b)=>a-b);
+  if(positions.length<2){
+    setRecDisplay(`Registrati ${positions.length} colpi. Servono almeno 2 colpi per ricavare un grouping.`);
+    renderAll();
+    return;
+  }
+  state.grid=Array(n).fill('-');
+  for(const p of positions) state.grid[p]='A';
+  const group=[];
+  for(let i=0;i<positions.length;i++){
+    const cur=positions[i];
+    const next=positions[(i+1)%positions.length] + (i===positions.length-1?n:0);
+    const gap=next-cur;
+    if(gap>0) group.push(gap);
+  }
+  state.group=group;
+  $('grouping').value=group.join('+');
+  updateBarsDropdown();
+  renderAll();
+  setRecDisplay(`<b>DONE</b> ${positions.length} colpi → grouping <b>${group.join('+')}</b>`);
+  setStatus('Live riff recorded + grouping generated');
+}
+
+function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=()=>{rollDice(); applyDice();};$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('targetGenerate')) $('targetGenerate').onclick=generateTargetRealignment; if($('targetFit')) $('targetFit').onclick=fitCurrentToTargetBars; if($('recStart')) $('recStart').onclick=startLiveRecord; if($('recHit')) $('recHit').onclick=recordHit; if($('recStop')) $('recStop').onclick=finishLiveRecord; window.addEventListener('keydown',e=>{if(e.code==='Space' && state.recording){e.preventDefault();recordHit();}}); if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
 bind();initGrid();generateFromGroup();
