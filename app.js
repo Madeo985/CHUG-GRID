@@ -30,7 +30,39 @@ function rollDice(){const rolls=parseInt($('rolls').value,10);state.dice=Array.f
 function applyDice(){if(!state.dice.length)rollDice();$('grouping').value=state.dice.join('+');generateFromGroup()}
 function renderGrid(){const n=displaySteps(),bs=barSteps();const grid=$('grid');grid.innerHTML='';grid.style.gridTemplateColumns=`repeat(${Math.min(16,n)}, minmax(34px,1fr))`;for(let i=0;i<n;i++){const d=document.createElement('button');d.className='cell';const v=state.grid[i]||'-';if(v==='x')d.classList.add('ghost'); if(v==='X')d.classList.add('chug'); if(v==='A')d.classList.add('accent'); if(v==='U')d.classList.add('up'); if(i===state.step%n)d.classList.add('playhead'); if(i%bs===0)d.classList.add('bar-start'); d.innerHTML=`<small>${labelFor(i,bs)}</small>${v}`; d.onclick=()=>{const idx=symbols.indexOf(state.grid[i]||'-');state.grid[i]=symbols[(idx+1)%symbols.length];renderAll();playCell(state.grid[i])}; grid.appendChild(d)} }
 function labelFor(i,bs){const within=i%bs; const beat=Math.floor(within/4)+1; return ['','e','&','a'][within%4] || beat}
-function renderMesh(){const bs=Math.round(barSteps()), rl=riffLen(); const align=lcm(bs,rl); $('riffCycle').textContent=`${rl}/16`; $('barCycle').textContent=`${bs}/16`; $('realign').textContent=`${align/bs} bars`; $('totalSteps').textContent=align; const track=$('alignTrack'); track.innerHTML=''; const hits=groupHits(align,true); for(let i=0;i<align;i++){const c=document.createElement('div');c.className='align-cell'; if(i%bs===0)c.classList.add('bar'); if(hits.includes(i))c.classList.add('hit'); if(i===0||i===align)c.classList.add('realign'); if(i===state.step%align)c.classList.add('active'); track.appendChild(c)} }
+
+function updateBarsDropdown(){
+  const sel=$('bars');
+  if(!sel) return;
+  const bs=Math.max(1, Math.round(barSteps()));
+  const rl=Math.max(1, riffLen());
+  const alignBars=Math.max(1, Math.min(128, Math.round(lcm(bs,rl)/bs)));
+  const riffBars=Math.max(1, Math.min(128, Math.ceil(rl/bs)));
+  const current=Math.max(1, Math.min(128, Math.round(state.bars || 4)));
+  const base=[1,2,3,4,5,6,7,8,12,16,24,32,64,128];
+  const options=[...new Set([...base, riffBars, alignBars, current])].filter(n=>n>=1&&n<=128).sort((a,b)=>a-b);
+  const old=sel.value;
+  sel.innerHTML='';
+  for(const n of options){
+    const opt=document.createElement('option');
+    opt.value=String(n);
+    let label=`${n} bar${n>1?'s':''}`;
+    if(n===alignBars) label+=` — realignment`;
+    else if(n===riffBars) label+=` — riff cycle`;
+    opt.textContent=label;
+    sel.appendChild(opt);
+  }
+  sel.value=String(current);
+  if(sel.value!==String(current)){
+    const opt=document.createElement('option');
+    opt.value=String(current);
+    opt.textContent=`${current} bar${current>1?'s':''} — custom`;
+    sel.appendChild(opt);
+    sel.value=String(current);
+  }
+}
+
+function renderMesh(){const bs=Math.round(barSteps()), rl=riffLen(); const align=lcm(bs,rl); updateBarsDropdown(); $('riffCycle').textContent=`${rl}/16`; $('barCycle').textContent=`${bs}/16`; $('realign').textContent=`${align/bs} bars`; $('totalSteps').textContent=align; const track=$('alignTrack'); track.innerHTML=''; const hits=groupHits(align,true); for(let i=0;i<align;i++){const c=document.createElement('div');c.className='align-cell'; if(i%bs===0)c.classList.add('bar'); if(hits.includes(i))c.classList.add('hit'); if(i===0||i===align)c.classList.add('realign'); if(i===state.step%align)c.classList.add('active'); track.appendChild(c)} }
 
 function fitGridToRealignment(){
   parseGroup();
@@ -53,7 +85,86 @@ function fitGridToRiffCycle(){
   setStatus(`Grid fitted to riff cycle: ${bars} bar${bars>1?'s':''}`);
 }
 
-function drawOrbit(){const canvas=$('orbit'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2;ctx.clearRect(0,0,w,h);ctx.lineCap='round';const bs=barSteps(),rl=riffLen();drawCircle(230,'#23314f');drawCircle(168,'#352547');for(let i=0;i<bs;i++){const a=-Math.PI/2+i/bs*2*Math.PI;dot(cx+Math.cos(a)*230,cy+Math.sin(a)*230,i%4===0?6:2,i%4===0?'#34e8ff':'#415273')}const hits=groupHits(rl,true).filter(x=>x<rl);for(const p of hits){const a=-Math.PI/2+p/rl*2*Math.PI;dot(cx+Math.cos(a)*168,cy+Math.sin(a)*168,7,'#75ff66')}const pa=-Math.PI/2+(state.step%bs)/bs*2*Math.PI,ra=-Math.PI/2+(state.step%rl)/rl*2*Math.PI;hand(pa,230,'#34e8ff',5);hand(ra,168,'#ff4fd8',5);dot(cx,cy,8,'#ffb13b');ctx.fillStyle='#f4f7ff';ctx.font='900 34px system-ui';ctx.textAlign='center';ctx.fillText(`${rl}/16`,cx,cy-8);ctx.font='700 13px system-ui';ctx.fillStyle='#91a0b8';ctx.fillText(`returns after ${lcm(bs,rl)/bs} bars`,cx,cy+18);function drawCircle(r,col){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.stroke()}function hand(a,r,col,lw){ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.stroke();ctx.shadowBlur=0}function dot(x,y,r,col){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0}}
+function drawOrbit(){
+  const canvas=$('orbit'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2;
+  ctx.clearRect(0,0,w,h);ctx.lineCap='round';
+  const bs=Math.max(1,Math.round(barSteps())), rl=Math.max(1,riffLen());
+  const align=Math.max(1,lcm(bs,rl));
+  const alignBars=Math.max(1,Math.round(align/bs));
+  const stepInAlign=((state.step%align)+align)%align;
+  const currentBar=Math.floor(stepInAlign/bs)+1;
+  const stepInBar=stepInAlign%bs;
+
+  const outerR=238, barR=214, riffR=164;
+  drawCircle(outerR,'#20304f',2);
+  drawCircle(barR,'#254067',2);
+  drawCircle(riffR,'#3a244d',3);
+
+  // Realignment bar markers around the outside: this is the new "bar count" orbit.
+  const showEvery = alignBars>48 ? Math.ceil(alignBars/24) : 1;
+  for(let b=0;b<alignBars;b++){
+    const a=-Math.PI/2+(b/alignBars)*2*Math.PI;
+    const major=(b===0 || b===alignBars-1 || (b+1)%showEvery===0);
+    const x1=cx+Math.cos(a)*(outerR-8), y1=cy+Math.sin(a)*(outerR-8);
+    const x2=cx+Math.cos(a)*(outerR+(major?8:3)), y2=cy+Math.sin(a)*(outerR+(major?8:3));
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    ctx.strokeStyle=b===0?'#75ff66':(b+1===currentBar?'#ffb13b':'#46577a');
+    ctx.lineWidth=major?2.2:1;
+    ctx.stroke();
+    if(alignBars<=32 || major){
+      const tx=cx+Math.cos(a)*(outerR+24), ty=cy+Math.sin(a)*(outerR+24);
+      ctx.fillStyle=(b+1===currentBar)?'#ffb13b':'#8fa0bd';
+      ctx.font=(b+1===currentBar)?'900 13px system-ui':'700 10px system-ui';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(b+1),tx,ty);
+    }
+  }
+
+  // Inner pulse markers: beat labels 1,2,3,4 when denominator is 4-ish.
+  const beats=Math.max(1,state.num);
+  for(let i=0;i<bs;i++){
+    const a=-Math.PI/2+i/bs*2*Math.PI;
+    const isBeat = i % Math.max(1,Math.round(bs/beats)) === 0;
+    dot(cx+Math.cos(a)*barR,cy+Math.sin(a)*barR,isBeat?6:2,isBeat?'#34e8ff':'#415273');
+    if(isBeat && beats<=16){
+      const beatNum=Math.floor(i/Math.max(1,Math.round(bs/beats)))+1;
+      ctx.fillStyle='#e8f3ff';ctx.font='900 14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(beatNum),cx+Math.cos(a)*(barR-24),cy+Math.sin(a)*(barR-24));
+    }
+  }
+
+  // Riff/chug markers around the riff cycle.
+  const hits=groupHits(rl,true).filter(x=>x<rl);
+  for(const p of hits){const a=-Math.PI/2+p/rl*2*Math.PI;dot(cx+Math.cos(a)*riffR,cy+Math.sin(a)*riffR,7,'#75ff66')}
+
+  // Hands: cyan = pulse within the bar, magenta = riff cycle, amber = current bar through the full realignment cycle.
+  const pa=-Math.PI/2+stepInBar/bs*2*Math.PI;
+  const ra=-Math.PI/2+(state.step%rl)/rl*2*Math.PI;
+  const ba=-Math.PI/2+((currentBar-1)/alignBars)*2*Math.PI;
+  hand(ba,outerR,'#ffb13b',3,.75);
+  hand(pa,barR,'#34e8ff',5,1);
+  hand(ra,riffR,'#ff4fd8',5,1);
+  dot(cx,cy,9,'#ffb13b');
+
+  // Center readout: current bar count is the hero.
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#ffffff';ctx.font='900 38px system-ui';
+  ctx.fillText(`BAR ${currentBar}/${alignBars}`,cx,cy-22);
+  ctx.fillStyle='#91a0b8';ctx.font='800 15px system-ui';
+  ctx.fillText(`riff ${rl}/16  •  bar ${bs}/16`,cx,cy+16);
+  ctx.fillStyle='#75ff66';ctx.font='800 13px system-ui';
+  ctx.fillText(`realigns after ${alignBars} bar${alignBars>1?'s':''}`,cx,cy+40);
+
+  // Flash the 1 when both cycles align.
+  if(stepInAlign===0){
+    ctx.beginPath();ctx.arc(cx,cy,outerR+42,0,Math.PI*2);
+    ctx.strokeStyle='rgba(117,255,102,.55)';ctx.lineWidth=8;ctx.shadowColor='#75ff66';ctx.shadowBlur=25;ctx.stroke();ctx.shadowBlur=0;
+  }
+
+  function drawCircle(r,col,lw=3){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.stroke()}
+  function hand(a,r,col,lw,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.stroke();ctx.restore()}
+  function dot(x,y,r,col){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0}
+}
 function renderAll(){renderGrid();renderMesh();drawOrbit()}
 function ensureAudio(){if(!state.audio){state.audio=new (window.AudioContext||window.webkitAudioContext)()} if(state.audio.state==='suspended')state.audio.resume();}
 function tone(freq,dur=0.045,type='square',gain=.06){if(!state.audio)return;const ctx=state.audio,o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=gain;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);o.stop(ctx.currentTime+dur)}
