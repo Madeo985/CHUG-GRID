@@ -36,7 +36,7 @@
         </div>
         <div class="row">
           <label>Time <input id="num" type="number" min="1" max="32" value="4"> / <input id="den" type="number" min="1" max="32" value="4"></label>
-          <label>Bars <select id="bars"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>6</option><option>8</option></select></label>
+          <label>Bars <input id="bars" type="number" min="1" max="128" value="4"></label>
         </div>
         <div class="row big-buttons">
           <button id="play" class="play">PLAY</button>
@@ -73,6 +73,7 @@
         <div><small>Realignment</small><strong id="realign">8 bars</strong></div>
         <div><small>Total steps</small><strong id="totalSteps">128</strong></div>
       </div>
+      <div class="align-actions"><button id="fitAlign" class="primary">Fit grid to realignment</button><button id="fitOneCycle">Fit grid to riff cycle</button></div>
       <div class="align-wrap">
         <div class="align-track" id="alignTrack"></div>
       </div>

@@ -31,6 +31,28 @@ function applyDice(){if(!state.dice.length)rollDice();$('grouping').value=state.
 function renderGrid(){const n=displaySteps(),bs=barSteps();const grid=$('grid');grid.innerHTML='';grid.style.gridTemplateColumns=`repeat(${Math.min(16,n)}, minmax(34px,1fr))`;for(let i=0;i<n;i++){const d=document.createElement('button');d.className='cell';const v=state.grid[i]||'-';if(v==='x')d.classList.add('ghost'); if(v==='X')d.classList.add('chug'); if(v==='A')d.classList.add('accent'); if(v==='U')d.classList.add('up'); if(i===state.step%n)d.classList.add('playhead'); if(i%bs===0)d.classList.add('bar-start'); d.innerHTML=`<small>${labelFor(i,bs)}</small>${v}`; d.onclick=()=>{const idx=symbols.indexOf(state.grid[i]||'-');state.grid[i]=symbols[(idx+1)%symbols.length];renderAll();playCell(state.grid[i])}; grid.appendChild(d)} }
 function labelFor(i,bs){const within=i%bs; const beat=Math.floor(within/4)+1; return ['','e','&','a'][within%4] || beat}
 function renderMesh(){const bs=Math.round(barSteps()), rl=riffLen(); const align=lcm(bs,rl); $('riffCycle').textContent=`${rl}/16`; $('barCycle').textContent=`${bs}/16`; $('realign').textContent=`${align/bs} bars`; $('totalSteps').textContent=align; const track=$('alignTrack'); track.innerHTML=''; const hits=groupHits(align,true); for(let i=0;i<align;i++){const c=document.createElement('div');c.className='align-cell'; if(i%bs===0)c.classList.add('bar'); if(hits.includes(i))c.classList.add('hit'); if(i===0||i===align)c.classList.add('realign'); if(i===state.step%align)c.classList.add('active'); track.appendChild(c)} }
+
+function fitGridToRealignment(){
+  parseGroup();
+  const bs=Math.round(barSteps());
+  const rl=riffLen();
+  const bars=Math.max(1, Math.min(128, Math.round(lcm(bs,rl)/bs)));
+  state.bars=bars;
+  $('bars').value=bars;
+  generateFromGroup();
+  setStatus(`Grid fitted to realignment: ${bars} bars`);
+}
+function fitGridToRiffCycle(){
+  parseGroup();
+  const bs=Math.round(barSteps());
+  const rl=riffLen();
+  const bars=Math.max(1, Math.min(128, Math.ceil(rl/bs)));
+  state.bars=bars;
+  $('bars').value=bars;
+  generateFromGroup();
+  setStatus(`Grid fitted to riff cycle: ${bars} bar${bars>1?'s':''}`);
+}
+
 function drawOrbit(){const canvas=$('orbit'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2;ctx.clearRect(0,0,w,h);ctx.lineCap='round';const bs=barSteps(),rl=riffLen();drawCircle(230,'#23314f');drawCircle(168,'#352547');for(let i=0;i<bs;i++){const a=-Math.PI/2+i/bs*2*Math.PI;dot(cx+Math.cos(a)*230,cy+Math.sin(a)*230,i%4===0?6:2,i%4===0?'#34e8ff':'#415273')}const hits=groupHits(rl,true).filter(x=>x<rl);for(const p of hits){const a=-Math.PI/2+p/rl*2*Math.PI;dot(cx+Math.cos(a)*168,cy+Math.sin(a)*168,7,'#75ff66')}const pa=-Math.PI/2+(state.step%bs)/bs*2*Math.PI,ra=-Math.PI/2+(state.step%rl)/rl*2*Math.PI;hand(pa,230,'#34e8ff',5);hand(ra,168,'#ff4fd8',5);dot(cx,cy,8,'#ffb13b');ctx.fillStyle='#f4f7ff';ctx.font='900 34px system-ui';ctx.textAlign='center';ctx.fillText(`${rl}/16`,cx,cy-8);ctx.font='700 13px system-ui';ctx.fillStyle='#91a0b8';ctx.fillText(`returns after ${lcm(bs,rl)/bs} bars`,cx,cy+18);function drawCircle(r,col){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.stroke()}function hand(a,r,col,lw){ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.stroke();ctx.shadowBlur=0}function dot(x,y,r,col){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0}}
 function renderAll(){renderGrid();renderMesh();drawOrbit()}
 function ensureAudio(){if(!state.audio){state.audio=new (window.AudioContext||window.webkitAudioContext)()} if(state.audio.state==='suspended')state.audio.resume();}
@@ -90,5 +112,5 @@ function musicXmlExport(){
   xml+=`</part></score-partwise>`; downloadBlob('chug-grid-guitarpro-ready.musicxml','application/vnd.recordare.musicxml+xml',xml); setStatus('MusicXML exported');
 }
 
-function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=rollDice;$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport}
+function bind(){['bpm','num','den','bars'].forEach(id=>$(id).onchange=()=>{state.bpm=+$('bpm').value;state.num=+$('num').value;state.den=+$('den').value;state.bars=+$('bars').value;initGrid()});document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{state.mode=r.value;generateFromGroup()});$('audio').onclick=()=>{ensureAudio();tone(660);setStatus('Audio ready')};$('play').onclick=play;$('stop').onclick=stop;$('reset').onclick=()=>{state.step=0;renderAll();setStatus('Reset')};$('step').onclick=()=>{ensureAudio();tick();setStatus('Step')};$('tap').onclick=tap;$('dice').onclick=rollDice;$('applyDice').onclick=applyDice;$('applyGroup').onclick=generateFromGroup;$('analyze').onclick=analyzeAudio;$('useDetected').onclick=useDetected;$('exportMidi').onclick=midiExport;$('exportXml').onclick=musicXmlExport; if($('fitAlign')) $('fitAlign').onclick=fitGridToRealignment; if($('fitOneCycle')) $('fitOneCycle').onclick=fitGridToRiffCycle}
 bind();initGrid();generateFromGroup();
