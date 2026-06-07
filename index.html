@@ -3,82 +3,97 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CHUG GRID — Cycle Mode</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
+  <title>CHUG GRID — Meshuggah View</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="app">
     <header class="hero">
       <div>
+        <p class="eyebrow">riff sketchpad for modern metal guitarists</p>
         <h1>CHUG GRID</h1>
-        <p>Riff sketchpad for modern metal guitarists</p>
       </div>
-      <div class="status"><span id="modeBadge">CYCLE MODE</span><span id="audioBadge">Audio off</span></div>
+      <div class="status" id="status">Ready</div>
     </header>
 
     <section class="top">
-      <aside class="panel controls">
-        <label>TEMPO</label>
-        <div class="tempo"><input id="bpm" type="number" min="30" max="260" value="120"><button id="tap">TAP</button></div>
-        <label>TIME SIGNATURE</label>
-        <div class="sig"><input id="num" type="number" min="1" max="32" value="4"><span>/</span><input id="den" type="number" min="1" max="32" value="4"></div>
-        <label>VIEW LENGTH</label>
-        <div class="seg" id="barsBtns"><button data-bars="1">1</button><button data-bars="2">2</button><button data-bars="4" class="on">4</button><button data-bars="6">6</button><button data-bars="8">8</button></div>
-        <small>Quante battute vuoi vedere nella griglia.</small>
-      </aside>
-
-      <section class="orbit panel">
-        <div class="orbitHeads"><b>PULSE 4/4</b><b>RIFF CYCLE</b></div>
-        <canvas id="orbit" width="620" height="360"></canvas>
-        <div class="readout"><span id="cycleText">Riff: —</span><span id="alignText">Return: —</span></div>
-      </section>
-
-      <aside class="panel dice">
-        <h2>🎲 DICE GENERATOR</h2>
-        <label>TIRI</label>
-        <div class="seg" id="diceBtns"><button data-rolls="3">3</button><button data-rolls="4">4</button><button data-rolls="5">5</button><button data-rolls="6" class="on">6</button></div>
-        <label>RISULTATO</label>
-        <div id="diceResult" class="diceResult">6 6 6</div>
-        <button id="roll" class="primary">ROLL</button>
-        <button id="generate" class="primary alt">GENERATE CYCLE</button>
-        <p>Il risultato diventa un ciclo tipo <b>5+3+4+6+2+5</b>.</p>
-      </aside>
-    </section>
-
-    <section class="panel composer">
-      <div class="row">
-        <div>
-          <label>GROUPING / RIFF CYCLE</label>
-          <input id="grouping" value="6+6+6" placeholder="es. 5+3+4+6+2+5">
+      <div class="panel orbit-panel">
+        <div class="panel-title"><span>Orbit</span><small>Pulse hand + Riff hand</small></div>
+        <canvas id="orbit" width="620" height="620"></canvas>
+        <div class="legend">
+          <span><b class="pulse-dot"></b> Pulse / bar</span>
+          <span><b class="riff-dot"></b> Riff cycle</span>
+          <span><b class="hit-dot"></b> Chugs</span>
         </div>
-        <div>
-          <label>MODE</label>
-          <select id="mode"><option value="cycle">Cycle Mode</option><option value="linear">Linear Fill</option></select>
-        </div>
-        <div>
-          <label>OFFSET</label>
-          <input id="offset" type="number" min="0" value="0">
-        </div>
-        <button id="apply" class="primary">APPLY</button>
       </div>
-      <div class="explain" id="explain">Cycle Mode: il riff gira con la sua lunghezza reale sopra la battuta.</div>
+
+      <div class="panel controls">
+        <div class="panel-title"><span>Transport</span><small>tap, play, step</small></div>
+        <div class="row">
+          <label>BPM <input id="bpm" type="number" min="30" max="300" value="120"></label>
+          <button id="tap" class="primary">TAP</button>
+          <button id="audio">Attiva audio</button>
+        </div>
+        <div class="row">
+          <label>Time <input id="num" type="number" min="1" max="32" value="4"> / <input id="den" type="number" min="1" max="32" value="4"></label>
+          <label>Bars <select id="bars"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>6</option><option>8</option></select></label>
+        </div>
+        <div class="row big-buttons">
+          <button id="play" class="play">PLAY</button>
+          <button id="step">STEP</button>
+          <button id="stop">STOP</button>
+          <button id="reset">RESET</button>
+        </div>
+
+        <div class="panel-title mini"><span>Dice riff</span><small>3–6 rolls → cyclic grouping</small></div>
+        <div class="row">
+          <label>Rolls <select id="rolls"><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
+          <button id="dice" class="primary">🎲 Roll</button>
+          <button id="applyDice">Apply</button>
+        </div>
+        <div class="dice-output" id="diceOut">—</div>
+
+        <div class="panel-title mini"><span>Grouping</span><small>es. 6+6+6 oppure 5+3+4+6+2+5</small></div>
+        <div class="row">
+          <input id="grouping" class="wide" value="6+6+6" />
+          <button id="applyGroup">Generate</button>
+        </div>
+        <div class="row toggle-row">
+          <label><input type="radio" name="mode" value="cycle" checked> Cycle Mode</label>
+          <label><input type="radio" name="mode" value="linear"> Linear Fill</label>
+        </div>
+      </div>
     </section>
 
-    <section class="panel gridPanel">
-      <div class="gridHead"><b id="gridTitle">4 battute · 64 sedicesimi</b><span>Click sulle celle: vuoto → X → x → U → -</span></div>
+    <section class="panel mesh">
+      <div class="panel-title"><span>Meshuggah View</span><small>where the riff returns to the 1</small></div>
+      <div class="mesh-stats">
+        <div><small>Riff cycle</small><strong id="riffCycle">18/16</strong></div>
+        <div><small>Bar cycle</small><strong id="barCycle">16/16</strong></div>
+        <div><small>Realignment</small><strong id="realign">8 bars</strong></div>
+        <div><small>Total steps</small><strong id="totalSteps">128</strong></div>
+      </div>
+      <div class="align-wrap">
+        <div class="align-track" id="alignTrack"></div>
+      </div>
+    </section>
+
+    <section class="panel grid-panel">
+      <div class="panel-title"><span>16th Grid</span><small>click cells: rest → ghost → chug → accent → upstroke</small></div>
       <div id="grid" class="grid"></div>
     </section>
 
-    <footer class="transport">
-      <button id="audio" class="primary">ATTIVA AUDIO</button>
-      <button id="play" class="primary play">PLAY</button>
-      <button id="step">STEP</button>
-      <button id="stop">STOP</button>
-      <button id="reset">RESET</button>
-      <button id="clear">CLEAR</button>
-    </footer>
+    <section class="panel audio-panel">
+      <div class="panel-title"><span>Audio Detective BETA</span><small>upload a riff and it guesses transients / tempo-ish</small></div>
+      <div class="row">
+        <input id="file" type="file" accept="audio/*" />
+        <button id="analyze">Analyze audio</button>
+        <button id="useDetected">Use detected hits</button>
+      </div>
+      <p class="hint">Non è “magia”: trova i picchi di attacco/chug. Per roba pulita e palm mute funziona meglio; per mix completi o audio sporco può sbagliare.</p>
+      <div class="detected" id="detected">No audio analyzed.</div>
+    </section>
   </main>
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
