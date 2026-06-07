@@ -1,86 +1,66 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHUG GRID — UI RESET</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CHUG GRID — Fixed Orbit + Tabs</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
-    <aside class="left panel">
-      <div class="brand"><div class="logo">▰▰▰</div><div><h1>CHUG<br>GRID</h1><p>riff sketchpad</p></div></div>
-      <section class="block">
-        <h2>TARGET REALIGNMENT</h2>
-        <label>Realign after <strong id="targetBarsText">5</strong> bars</label>
-        <input id="targetBars" type="range" min="1" max="32" value="5" />
-        <div class="ticks"><span>1</span><span>4</span><span>8</span><span>16</span><span>32</span></div>
-        <button id="autoGenerate" class="primary">AUTO GENERATE 🎲</button>
-      </section>
-      <section class="block">
-        <h2>DICE MODE</h2>
-        <label>Rolls <strong id="rollsText">5</strong></label>
-        <input id="rolls" type="range" min="3" max="6" value="5" />
-        <label>Density <strong id="densityText">60%</strong></label>
-        <input id="density" type="range" min="20" max="95" value="60" />
-        <button id="rollDice">ROLL</button>
-        <div id="diceResult" class="diceResult">5 + 5 + 7 + 8</div>
-      </section>
-      <section class="block mini">
-        <label><input id="accentFirst" type="checkbox" checked> Accent first step</label>
-        <label><input id="loop" type="checkbox" checked> Loop</label>
-        <label><input id="humanize" type="checkbox"> Humanize</label>
-      </section>
-    </aside>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">RIFF SKETCHPAD FOR MODERN METAL GUITARISTS</div>
+        <h1>CHUG GRID</h1>
+      </div>
+      <nav class="tabs" aria-label="Views">
+        <button class="tab active" data-view="grid">GRID</button>
+        <button class="tab" data-view="orbit">ORBIT</button>
+        <button class="tab" data-view="matrix">MATRIX</button>
+        <button class="tab" data-view="list">LIST</button>
+      </nav>
+    </header>
 
-    <section class="center">
-      <nav class="tabs"><button class="active">GRID</button><button>ORBIT</button><button>MATRIX</button><button>LIST</button></nav>
-      <section class="orbitCard panel">
-        <canvas id="orbit" width="720" height="560"></canvas>
-        <div class="legend"><span class="bar"></span> BAR <span class="pulse"></span> PULSE <span class="riff"></span> RIFF</div>
+    <main class="layout">
+      <section class="card orbit-card">
+        <div class="card-head"><h2>ORBIT</h2><span>fixed size • bar count overlay</span></div>
+        <canvas id="orbit" width="720" height="720"></canvas>
+        <div class="legend"><span class="c cyan"></span>Pulse/bar <span class="c pink"></span>Riff cycle <span class="c green"></span>Chugs</div>
       </section>
-      <section class="gridCard panel">
-        <div class="gridHead"><strong id="gridTitle">5 bars · 80 steps</strong><span>click cells: rest → hit → accent → upstroke</span></div>
+
+      <aside class="card controls">
+        <div class="card-head"><h2>TRANSPORT</h2><span>tap, play, step</span></div>
+        <div class="row"><label>BPM</label><input id="bpm" type="number" min="30" max="260" value="120"><button id="tap">TAP</button><button id="audio">ATTIVA AUDIO</button></div>
+        <div class="row"><label>Time</label><input id="num" type="number" min="1" max="32" value="4"><span>/</span><input id="den" type="number" min="1" max="32" value="4"><label>Bars</label><select id="bars"></select></div>
+        <div class="button-grid"><button id="play">PLAY</button><button id="step">STEP</button><button id="stop">STOP</button><button id="reset">RESET</button></div>
+
+        <div class="block"><h3>TARGET REALIGN</h3><div class="row"><label>after</label><input id="targetBars" type="number" min="1" max="64" value="9"><span>bars</span><button id="fit">FIT</button></div></div>
+
+        <div class="block"><h3>DICE RIFF</h3><div class="row"><label>Rolls</label><select id="rolls"><option>3</option><option>4</option><option>5</option><option selected>6</option></select><button id="roll">🎲 ROLL</button><button id="applyDice">APPLY</button></div><div id="diceResult" class="result">–</div></div>
+
+        <div class="block"><h3>GROUPING</h3><input id="grouping" value="6+6+6" placeholder="es. 6+6+6 oppure 5+3+4+6+2+5"><button id="generate">GENERATE</button><div class="radios"><label><input type="radio" name="mode" value="cycle" checked> Cycle Mode</label><label><input type="radio" name="mode" value="linear"> Linear Fill</label></div></div>
+      </aside>
+    </main>
+
+    <section class="views card">
+      <section id="view-grid" class="view active">
+        <div class="card-head"><h2>16TH GRID</h2><span>click cells: rest → ghost → chug → accent → upstroke</span></div>
         <div id="grid" class="grid"></div>
       </section>
-      <section class="bottom panel">
-        <div class="stepBox">STEP <strong id="stepText">1 / 80</strong></div>
-        <button id="play" class="play">▶ PLAY</button>
-        <button id="stop">■ STOP</button>
-        <button id="step">STEP</button>
-        <button id="clear">CLEAR</button>
-        <button id="exportMidi">EXPORT MIDI</button>
-        <button id="exportXml">GUITAR PRO XML</button>
+      <section id="view-orbit" class="view">
+        <div class="card-head"><h2>ORBIT DETAILS</h2><span>cycle math</span></div>
+        <div id="details" class="details"></div>
+      </section>
+      <section id="view-matrix" class="view">
+        <div class="card-head"><h2>MATRIX</h2><span>bar-by-bar density</span></div>
+        <div id="matrix" class="matrix"></div>
+      </section>
+      <section id="view-list" class="view">
+        <div class="card-head"><h2>LIST</h2><span>hit positions</span></div>
+        <pre id="list" class="list"></pre>
       </section>
     </section>
-
-    <aside class="right panel">
-      <section class="block info">
-        <h2>INFO</h2>
-        <p><span>Time Signature</span><strong>4 / 4</strong></p>
-        <p><span>Steps per bar</span><strong>16</strong></p>
-        <p><span>Total steps</span><strong id="totalStepsInfo">80</strong></p>
-        <p><span>Realignment</span><strong id="realignInfo">every 5 bars</strong></p>
-      </section>
-      <section class="block grouping">
-        <h2>GROUPING</h2>
-        <div id="groupingDisplay">5 + 5 + 7 + 8</div>
-        <small id="cycleInfo">25 steps</small>
-      </section>
-      <section class="block controls">
-        <h2>CONTROLS</h2>
-        <label>BPM <input id="bpm" type="number" value="120" min="40" max="260"></label>
-        <button id="tap">TAP</button>
-        <label>Swing <input id="swing" type="range" min="0" max="60" value="0"></label>
-        <button id="audio">ATTIVA AUDIO</button>
-      </section>
-      <section class="block detective">
-        <h2>AUDIO DETECTIVE</h2>
-        <input id="audioFile" type="file" accept="audio/*">
-        <button id="fakeDetect">SUGGEST GROOVE</button>
-      </section>
-    </aside>
-  </main>
-  <script src="app.js?v=uireset1"></script>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>
