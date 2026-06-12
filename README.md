@@ -1,3 +1,3 @@
-# CHUG-GRID Premium Starter
+# CHUG-GRID Vercel Fix
 
-Next.js + Tailwind starter structure for CHUG-GRID.
+Next.js starter with valid dependencies for Vercel deploy.
